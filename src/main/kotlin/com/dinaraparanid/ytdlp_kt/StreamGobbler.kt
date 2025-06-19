@@ -1,19 +1,20 @@
 package com.dinaraparanid.ytdlp_kt
 
+import java.io.BufferedReader
 import java.io.IOException
 import java.io.InputStream
+import java.io.InputStreamReader
 
-internal class StreamGobbler(private val buffer: StringBuffer, private val stream: InputStream) : Thread() {
+internal class StreamGobbler(private val buffer: StringBuffer, private val stream: InputStream, private val onLine: (String) -> Unit = {}) : Thread() {
     init {
         start()
     }
 
     override fun run() {
         try {
-            var nextChar: Int
-
-            while (stream.read().also { nextChar = it } != -1)
-                buffer.append(nextChar.toChar())
+            BufferedReader(InputStreamReader(stream)).use { br ->
+                br.lines().forEach { line -> onLine(line) }
+            }
         } catch (_: IOException) {
         }
     }

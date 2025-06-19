@@ -18,7 +18,7 @@ object YtDlp : CoroutineScope by CoroutineScope(Dispatchers.IO) {
     private fun buildCommand(command: String, isPythonExecutable: Boolean) =
         "${if (isPythonExecutable) "python3 " else ""}yt-dlp $command"
 
-    private fun executeWithResponseOrThrow(request: YtDlpRequest, isPythonExecutable: Boolean): YtDlpResponse {
+    private fun executeWithResponseOrThrow(request: YtDlpRequest, isPythonExecutable: Boolean, onEachLine: (String) -> Unit = {}): YtDlpResponse {
         val directory = request.directory
         val options = request.options
         val outBuffer = StringBuffer() //stdout
@@ -41,8 +41,8 @@ object YtDlp : CoroutineScope by CoroutineScope(Dispatchers.IO) {
         val outStream = process.inputStream
         val errStream = process.errorStream
 
-        StreamGobbler(outBuffer, outStream)
-        StreamGobbler(errBuffer, errStream)
+        StreamGobbler(outBuffer, outStream, onEachLine)
+        StreamGobbler(errBuffer, errStream, onEachLine)
 
         val exitCode = try {
             process.waitFor()
@@ -71,9 +71,9 @@ object YtDlp : CoroutineScope by CoroutineScope(Dispatchers.IO) {
 
     @JvmStatic
     @JvmName("execute")
-    fun execute(request: YtDlpRequest, isPythonExecutable: Boolean) =
+    fun execute(request: YtDlpRequest, isPythonExecutable: Boolean, onEachLine: (String) -> Unit = {}) =
         kotlin.runCatching {
-            YtDlpRequestStatus.Success(executeWithResponseOrThrow(request, isPythonExecutable))
+            YtDlpRequestStatus.Success(executeWithResponseOrThrow(request, isPythonExecutable, onEachLine))
         }.getOrElse {  exception ->
             ConversionException(exception).error
         }
@@ -88,8 +88,8 @@ object YtDlp : CoroutineScope by CoroutineScope(Dispatchers.IO) {
 
     @JvmStatic
     @JvmName("executeAsync")
-    fun executeAsync(request: YtDlpRequest, isPythonExecutable: Boolean) = async {
-        execute(request, isPythonExecutable)
+    fun executeAsync(request: YtDlpRequest, isPythonExecutable: Boolean, onEachLine: (String) -> Unit = {}) = async {
+        execute(request, isPythonExecutable, onEachLine)
     }
 
     /**
@@ -125,14 +125,14 @@ object YtDlp : CoroutineScope by CoroutineScope(Dispatchers.IO) {
 
     @JvmStatic
     @JvmName("getVideoData")
-    fun getVideoData(url: String, isPythonExecutable: Boolean) =
+    fun getVideoData(url: String, isPythonExecutable: Boolean, onEachLine: (String) -> Unit = {}) =
         kotlin.runCatching {
             YtDlpRequest(url)
                 .apply {
                     setOption("--dump-json")
                     setOption("--no-playlist")
                 }
-                .let { executeWithResponseOrThrow(it, isPythonExecutable) }
+                .let { executeWithResponseOrThrow(it, isPythonExecutable, onEachLine) }
                 .let(YtDlpResponse::out)
                 .let<String, VideoInfo>(json::decodeFromString)
                 .withFileNameWithoutExt
