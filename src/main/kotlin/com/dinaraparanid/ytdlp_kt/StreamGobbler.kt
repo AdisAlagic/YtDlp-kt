@@ -13,7 +13,10 @@ internal class StreamGobbler(private val buffer: StringBuffer, private val strea
     override fun run() {
         try {
             BufferedReader(InputStreamReader(stream)).use { br ->
-                br.lines().forEach { line -> onLine(line) }
+                br.lines().forEach {
+                    line -> onLine(line)
+                    buffer.append(line)
+                }
             }
         } catch (_: IOException) {
         }
